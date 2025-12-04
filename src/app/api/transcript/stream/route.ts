@@ -5,6 +5,7 @@ import OpenAI from 'openai'
 
 // Store active WebSocket connections
 const activeConnections = new Map<string, WebSocket>()
+export const runtime = 'nodejs';
 
 // OpenAI client for transcription
 const openai = new OpenAI({
