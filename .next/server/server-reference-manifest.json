@@ -1,0 +1,14 @@
+{
+  "node": {
+    "ccc46a517d8685c1672027f6ddad37bf848b378a": {
+      "workers": {
+        "app/dashboard/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fankursingh%2FTest-cursor%2Flive-meeting-notes%2Fsrc%2Fapp%2Fdashboard%2Flayout.tsx%22%2C%5B%22%24%24ACTION_0%22%5D%5D%5D&__client_imported__=!"
+      },
+      "layer": {
+        "app/dashboard/page": "rsc"
+      }
+    }
+  },
+  "edge": {},
+  "encryptionKey": "gtCnAnjy82yS4CHNMpGhZCqGJEIuAvHnASWE8fOjssk="
+}
