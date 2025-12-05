@@ -1,210 +1,106 @@
-# Live Meeting Notes - AI Note Taker
+# Live Meeting Notes Application
 
-A comprehensive SaaS application for recording meetings, transcribing audio in real-time, and generating AI-powered summaries. Built with Next.js, Supabase, and OpenAI.
-
-## Features
-
-### Core Functionality
-- **Real-time Meeting Recording**: Join Zoom or Google Meet meetings with AI bot
-- **Live Transcription**: Stream audio to text using OpenAI Whisper
-- **AI Summaries**: Generate meeting summaries, action items, and key highlights
-- **Dashboard**: Complete web interface for managing meetings
-- **File Upload**: Upload existing audio recordings for processing
-
-### Technical Features
-- Real-time WebSocket audio streaming
-- OpenAI GPT-4 for intelligent summaries
-- Supabase for database and authentication
-- Responsive web interface with Tailwind CSS
-- File upload and processing pipeline
+This project aims to build a comprehensive web application and Chrome extension to automatically detect, record, transcribe, summarize, and manage Google Meet calls, similar to tl;dv.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
-- **AI**: OpenAI Whisper (transcription), GPT-4 (summaries)
-- **Real-time**: WebSockets for audio streaming
-- **Storage**: Supabase Storage for audio files
+**Frontend:** Next.js 15 (App Router), TypeScript, TailwindCSS, ShadCN UI, Zustand
+**Backend:** Supabase (Database + Auth + Functions), Deepgram (Real-time transcription), OpenAI (Summarization), WebSockets
+**Chrome Extension:** Manifest V3, React, TailwindCSS
 
-## Quick Start
+## Setup Instructions
 
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- Supabase account
-- OpenAI API key
+### 1. Environment Variables
 
-### Installation
-
-1. **Clone and install dependencies**
-   ```bash
-   git clone <repository-url>
-   cd live-meeting-notes
-   npm install
-   ```
-
-2. **Set up Supabase**
-   - Create a new Supabase project
-   - Run the SQL schema from `supabase/schema.sql`
-   - Create storage bucket: `audio-files` (public)
-   - Get your project URL and API keys
-
-3. **Configure environment variables**
-   ```bash
-   cp env-example.txt .env.local
-   ```
-
-   Edit `.env.local` with your actual values:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-   OPENAI_API_KEY=your-openai-api-key
-   ```
-
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open your browser**
-   - Visit `http://localhost:3000`
-   - Sign up for an account
-   - Start creating meetings!
-
-## Project Structure
+Create a `.env.local` file in the root of the `live-meeting-notes` directory and populate it with the following:
 
 ```
-src/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   │   ├── meetings/      # Meeting management
-│   │   └── transcript/    # Transcription services
-│   ├── auth/              # Authentication pages
-│   ├── dashboard/         # Main dashboard
-│   │   └── meeting/       # Meeting detail pages
-│   ├── upload/            # File upload page
-│   └── layout.tsx         # Root layout
-├── components/            # Reusable components
-├── lib/                   # Utility libraries
-│   ├── supabase.ts        # Supabase client
-│   ├── auth.ts           # Authentication helpers
-│   └── websocket.ts      # WebSocket client
-├── types/                 # TypeScript definitions
-│   └── database.ts        # Database types
-└── utils/                 # Helper functions
+NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 
-supabase/
-└── schema.sql            # Database schema
+DEEPGRAM_API_KEY=YOUR_DEEPGRAM_API_KEY
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+
+EXTENSION_ID=YOUR_CHROME_EXTENSION_ID # This will be generated after loading the extension
 ```
 
-## API Endpoints
+**How to obtain these keys:**
 
-### Meetings
-- `POST /api/meetings/create` - Create new meeting
-- `POST /api/meetings/end` - End meeting and trigger summary
-- `POST /api/meetings/generate-summary` - Generate AI summaries
+*   **Supabase Project URL, Anon Key, Service Role Key:**
+    1.  Go to [Supabase](https://supabase.com/) and create a new project.
+    2.  Navigate to "Settings" -> "API" in your Supabase project dashboard.
+    3.  You will find your Project URL, `anon` public key, and `service_role` secret key there.
 
-### Transcription
-- `GET /api/transcript/stream` - WebSocket endpoint for real-time transcription
-- `POST /api/transcript/upload` - Upload and transcribe audio files
+*   **Deepgram API Key:**
+    1.  Go to [Deepgram](https://deepgram.com/) and sign up or log in.
+    2.  Navigate to "API Keys" in your Deepgram console.
+    3.  Create a new API key.
 
-## Database Schema
+*   **OpenAI API Key:**
+    1.  Go to [OpenAI](https://openai.com/) and sign up or log in.
+    2.  Navigate to "API keys" in your OpenAI dashboard.
+    3.  Create a new secret key.
 
-### Core Tables
-- `users` - User profiles
-- `meetings` - Meeting records
-- `meeting_participants` - Meeting attendees
-- `transcript_chunks` - Transcription segments
-- `ai_summaries` - Generated summaries
-- `audio_processing_queue` - Background processing
+### 2. Install Dependencies
 
-See `supabase/schema.sql` for complete schema definition.
+Navigate to the `live-meeting-notes` directory and install the dependencies:
 
-## Development
-
-### Available Scripts
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
+npm install
 ```
 
-### Key Components
+### 3. Run the Next.js Application
 
-#### Real-time Audio Processing
-The app uses WebSockets to stream audio from the browser to the server, where it's processed by OpenAI Whisper in real-time.
+```bash
+npm run dev
+```
 
-#### AI Summary Generation
-After meetings end, GPT-4 analyzes transcripts to generate:
-- Full meeting summaries
-- Key points and takeaways
-- Action items with assignees
-- Important highlights with timestamps
+The application will be accessible at `http://localhost:3000`.
 
-#### File Upload Pipeline
-1. User uploads audio file
-2. File stored in Supabase Storage
-3. OpenAI Whisper transcribes entire file
-4. GPT-4 generates summaries
-5. Results displayed in dashboard
+### 4. Supabase Database Setup
+
+Follow the instructions in `supabase/schema.sql` to set up your database tables and RLS policies. You can use the Supabase UI or the Supabase CLI to run the SQL.
+
+### 5. Chrome Extension
+
+#### Loading the Unpacked Extension
+
+1.  Open Google Chrome.
+2.  Go to `chrome://extensions/`.
+3.  Enable "Developer mode" (toggle switch in the top right).
+4.  Click "Load unpacked" and select the `live-meeting-notes/chrome-extension` directory.
+5.  After loading, an "Extension ID" will be generated for your extension. Copy this ID and paste it into the `EXTENSION_ID` environment variable in your `.env.local` file.
+
+#### Testing on Google Meet
+
+1.  Start your Next.js application (`npm run dev`).
+2.  Open a Google Meet call (`https://meet.google.com/*`).
+3.  The content script will inject "Start Recording", "Stop Recording", and "View Dashboard" buttons into the Google Meet interface.
+4.  Use these buttons to control the recording and view your meeting dashboard.
+
+#### Content Script Interaction with Backend
+
+The Chrome extension's content script communicates with the background service worker, which then establishes a WebSocket connection to the `/api/transcribe` endpoint of your Next.js backend. This allows real-time streaming of audio for transcription.
 
 ## Deployment
 
-### Vercel + Supabase (Recommended)
+### Vercel (Next.js Application)
 
-1. **Deploy to Vercel**
-   ```bash
-   npm install -g vercel
-   vercel
-   ```
+1.  Push your code to a Git repository (e.g., GitHub, GitLab, Bitbucket).
+2.  Go to [Vercel](https://vercel.com/) and import your project.
+3.  During the setup, ensure you configure the environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DEEPGRAM_API_KEY`, `OPENAI_API_KEY`) as "Environment Variables" in your Vercel project settings.
 
-2. **Configure environment variables** in Vercel dashboard
+### Chrome Web Store (Extension)
 
-3. **Update Supabase CORS settings** to allow your Vercel domain
+To deploy the Chrome extension to the Chrome Web Store, you will need to:
 
-### Alternative Deployment Options
+1.  Create a developer account.
+2.  Package your extension.
+3.  Upload it to the developer dashboard.
 
-See `DEPLOYMENT.md` for detailed deployment instructions including:
-- Docker deployment
-- WebSocket server setup
-- Production WebSocket configuration
-- Load balancing considerations
+Refer to the official Chrome Developers documentation for detailed instructions on [publishing your extension](https://developer.chrome.com/docs/webstore/publish/).
 
-## Architecture
+## Testing
 
-### System Overview
-```
-Browser Client ↔️ WebSocket Server ↔️ OpenAI Whisper
-       ↓              ↓              ↓
-   Dashboard UI → API Routes → Supabase Database
-              ↓              ↓
-       File Upload → GPT-4 Summaries
-```
-
-### Data Flow
-1. **Live Meeting**: Browser captures audio → WebSocket → OpenAI Whisper → Transcript chunks stored
-2. **Meeting End**: Trigger summary generation → GPT-4 analyzes transcript → AI summaries stored
-3. **File Upload**: Audio file → OpenAI Whisper → Full transcript → GPT-4 summaries
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Support
-
-For support, email support@livemeetingnotes.com or create an issue on GitHub.
-
----
-
-Built with ❤️ using Next.js, Supabase, and OpenAI
+Comprehensive end-to-end, unit, and integration tests will be developed to ensure the reliability and functionality of the application and extension. This includes simulating Google Meet environments and robust error handling tests.

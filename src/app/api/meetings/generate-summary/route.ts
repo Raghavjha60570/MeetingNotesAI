@@ -1,150 +1,99 @@
-import { createServerSupabaseClient } from '@/lib/auth'
-import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { openai } from '../../../../src/lib/openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export async function POST(request: NextRequest) {
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+const supabaseServiceRole = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { meetingId } = await req.json();
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!meetingId) {
+      return NextResponse.json({ error: 'Meeting ID is required' }, { status: 400 });
     }
 
-    const body = await request.json()
-    const { meeting_id } = body
+    // 1. Query full transcript from Supabase
+    const { data: transcripts, error: transcriptError } = await supabaseServiceRole
+      .from('transcripts')
+      .select('text_chunk')
+      .eq('meeting_id', meetingId)
+      .order('timestamp_ms', { ascending: true });
 
-    if (!meeting_id) {
-      return NextResponse.json(
-        { error: 'Meeting ID is required' },
-        { status: 400 }
-      )
+    if (transcriptError) throw transcriptError;
+
+    const fullTranscript = transcripts.map(t => t.text_chunk).join(' ');
+
+    if (!fullTranscript.trim()) {
+      return NextResponse.json({ message: 'No transcript available for summarization.' }, { status: 200 });
     }
 
-    // Verify user owns this meeting
-    const { data: meeting, error: meetingError } = await supabase
+    // 2. Send to OpenAI API for summary generation
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Using gpt-4o-mini as requested for optional upgrade
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant that summarizes meeting transcripts. Provide a concise summary, key bullet points, action items, and important quotes from the meeting.",
+        },
+        {
+          role: "user",
+          content: `Please summarize the following meeting transcript, providing a concise summary, 3-5 key bullet points, any action items, and 2-3 important quotes:\n\nTranscript: ${fullTranscript}`,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 1024,
+    });
+
+    const aiResponseContent = completion.choices[0]?.message?.content;
+
+    if (!aiResponseContent) {
+      throw new Error('OpenAI did not return a summary.');
+    }
+
+    // Parse the AI response into structured data
+    const summaryRegex = /Summary:\\s*([\\s\\S]*?)(?:\\n\\nKey Points:|$)/i;
+    const bulletPointsRegex = /Key Points:\\s*(?:-|\\*|\\d\\.)\\s*([\\s\\S]*?)(?:\\n\\nAction Items:|$)/i;
+    const actionItemsRegex = /Action Items:\\s*(?:-|\\*|\\d\\.)\\s*([\\s\\S]*?)(?:\\n\\nImportant Quotes:|$)/i;
+    const quotesRegex = /Important Quotes:\\s*([\\s\\S]*)/i;
+
+    const extractPoints = (text: string) => {
+      return text.split(/\n(?:-|\*|\d\.)\s*/).filter(Boolean).map(s => s.trim());
+    };
+
+    const summaryMatch = aiResponseContent.match(summaryRegex);
+    const bulletPointsMatch = aiResponseContent.match(bulletPointsRegex);
+    const actionItemsMatch = aiResponseContent.match(actionItemsRegex);
+    const quotesMatch = aiResponseContent.match(quotesRegex);
+
+    const parsedSummary = {
+      summary: summaryMatch ? summaryMatch[1].trim() : 'No summary generated.',
+      bulletPoints: bulletPointsMatch ? extractPoints(bulletPointsMatch[1]) : [],
+      actionItems: actionItemsMatch ? extractPoints(actionItemsMatch[1]) : [],
+      importantQuotes: quotesMatch ? extractPoints(quotesMatch[1]) : [],
+    };
+
+    // 3. Save to meetings.summary
+    const { error: updateError } = await supabaseServiceRole
       .from('meetings')
-      .select('*')
-      .eq('id', meeting_id)
-      .eq('user_id', user.id)
-      .single()
+      .update({ summary: JSON.stringify(parsedSummary) })
+      .eq('id', meetingId);
 
-    if (meetingError || !meeting) {
-      return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
-    }
+    if (updateError) throw updateError;
 
-    // Get all transcript chunks for this meeting
-    const { data: transcripts, error: transcriptError } = await supabase
-      .from('transcript_chunks')
-      .select('*')
-      .eq('meeting_id', meeting_id)
-      .order('start_time', { ascending: true })
-
-    if (transcriptError) {
-      console.error('Error fetching transcripts:', transcriptError)
-      return NextResponse.json({ error: 'Failed to fetch transcripts' }, { status: 500 })
-    }
-
-    if (!transcripts || transcripts.length === 0) {
-      return NextResponse.json({ error: 'No transcripts available for summary generation' }, { status: 400 })
-    }
-
-    // Combine all transcript text
-    const fullTranscript = transcripts
-      .map(chunk => chunk.text)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-
-    // Generate different types of summaries
-    const summaryTypes = [
-      {
-        type: 'full_summary',
-        prompt: `Please provide a comprehensive summary of the following meeting transcript. Include the main topics discussed, key decisions made, and important outcomes. Be concise but thorough:
-
-${fullTranscript}`
-      },
-      {
-        type: 'key_points',
-        prompt: `Extract the key points and main takeaways from this meeting transcript. Focus on the most important information and decisions:
-
-${fullTranscript}`
-      },
-      {
-        type: 'action_items',
-        prompt: `Identify all action items, tasks, and follow-ups mentioned in this meeting transcript. Include who is responsible for each item and any deadlines mentioned:
-
-${fullTranscript}`
-      },
-      {
-        type: 'highlights',
-        prompt: `Extract the most important highlights and memorable moments from this meeting transcript. Focus on significant statements, decisions, and key discussions:
-
-${fullTranscript}`
-      }
-    ]
-
-    const generatedSummaries = []
-
-    for (const summaryType of summaryTypes) {
-      try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert meeting assistant. Provide clear, well-structured summaries that capture the essence of the discussion.'
-            },
-            {
-              role: 'user',
-              content: summaryType.prompt
-            }
-          ],
-          max_tokens: 1000,
-          temperature: 0.3
-        })
-
-        const content = completion.choices[0]?.message?.content?.trim()
-
-        if (content) {
-          const { error: insertError } = await supabase
-            .from('ai_summaries')
-            .insert({
-              meeting_id,
-              summary_type: summaryType.type,
-              content,
-              model_used: 'gpt-4'
-            })
-
-          if (insertError) {
-            console.error(`Error saving ${summaryType.type}:`, insertError)
-          } else {
-            generatedSummaries.push({
-              type: summaryType.type,
-              content
-            })
-          }
-        }
-      } catch (error) {
-        console.error(`Error generating ${summaryType.type}:`, error)
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      summaries_generated: generatedSummaries.length,
-      summaries: generatedSummaries
-    })
-
-  } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ message: 'Summary generated and saved successfully.', summary: parsedSummary }, { status: 200 });
+  } catch (error: any) {
+    console.error('AI Summary API Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export const config = {
+  runtime: 'edge',
+};

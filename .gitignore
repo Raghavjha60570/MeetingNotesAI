@@ -1,6 +1,40 @@
-node_modules/
+# Next.js production build output
 .next/
-dist/
-build/
-.env
+out/
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env.local
+.env.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# macOS specific files
 .DS_Store
+
+# npm package manager cache
+.npm/
+
+# Chrome Extension specific files (if any generated during development)
+# e.g., if you build the extension, the output folder
+build/
+
+# Test reports
+coverage/
+.nyc_output/
+
+# Any other temporary files
+*.log
+*.tmp
